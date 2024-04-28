@@ -59,20 +59,21 @@ python chat_interface.py
 ### Index Phase
   - [x] Data Preperation
   - [x] Chunking/Spliting strategy
-    - Sentence Splitter with chunking size of 512
+    - SentenceSplitter with chunking size of 512
   - [ ] Select VectorDB
     - Refer benchmark data
 ### Post Processing Phase
   - [ ] Guradrails (Out-of-context, Abusive, vulgar, etc.)
   - [ ] Retreiveing and Reranking techniques
 - [X] Evaluate the performance
-  - [x] Q-A Pair Generation for testing, evaluation
-  - [ ] Response Evaluation
+  - [x] Q-A Pair Generation for testing
+  - [X] Response Evaluation
   - [ ] Retrieval Evaluation
 ### Others
   - [ ] Conversation History for context understanding
-### Deployment Phase
-- Deploy the chatbot on a platform (like Streamlit) for user interaction.
+  - [ ] Multi-turn conversation support
+  - [ ] Mulingual Support
+
 
 ## Tools
 - llamaindex
