@@ -25,12 +25,14 @@ pip install python-dotenv
 ```
 ## Usage
 To run the AskBio chatbot, execute the following command in your terminal:
+
+### For CLI:
 ```bash
+cd /src
 python askbio.py
 ```
 Follow the on-screen prompts to enter your questions. Type `/bye` to exit the chatbot interface.
-
-## Example Interaction
+#### Example Interaction (CLI)
 ```
 $ Welcome to AskBio. Enter your question or type '/bye' to exit.
 $ Enter your question: How does photosynthesis work?
@@ -38,6 +40,14 @@ $ Response: Photosynthesis is a process used by plants, algae, and certain bacte
 $ Enter your question: /bye
 $ Exiting AskBio. Goodbye!
 ```
+### For UI
+```bash
+cd /src
+python chat_interface.py
+```
+<!-- insert image of UI here -->
+#### Example Interaction (UI)
+![AskBio UI](https://github.com/MeAmarP/askbio/blob/c1d23c24e73a292de09ac18dc99a3bbfc915bd18/Screenshot%20from%202024-04-29%2002-07-18.png)
 ---
 ## Action Items
   - [x] Select LLM Model
