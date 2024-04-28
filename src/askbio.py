@@ -110,11 +110,12 @@ class AskBio:
             tokenizer_name="microsoft/Phi-3-mini-4k-instruct",
             context_window=3900,
             max_new_tokens=512,
-            model_kwargs={"quantization_config": quantization_config},
+            model_kwargs={"quantization_config": quantization_config,
+                          "trust_remote_code": True},
             generate_kwargs={"temperature": 0.0},
             messages_to_prompt=messages_to_prompt,
             completion_to_prompt=completion_to_prompt,
-            device_map="auto",
+            device_map="auto"
         )
         return llm
     
@@ -170,7 +171,7 @@ class AskBio:
         context = " ".join(node.get_text() for node in nodes)
         prompt = self.askbio_prefix.format(context_str=context, query_str=user_query)
         response = self.query_engine.query(prompt)
-        return response
+        return str(response)
     
 if __name__ == "__main__":
     # import traceback
