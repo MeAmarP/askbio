@@ -2,7 +2,41 @@ import fitz  # PyMuPDF
 import os
 import json
 
+
+def save_page_ranges(source_pdf_path, output_pdf_path, page_ranges):
+    """
+    Saves specified ranges of pages from a source PDF to a new PDF file.
+
+    Args:
+    source_pdf_path (str): Path to the source PDF file.
+    output_pdf_path (str): Path to the output PDF file.
+    page_ranges (list of tuples): List of tuples, where each tuple represents a page range to save (inclusive, 0-indexed).
+    """
+    # Open the source PDF file
+    doc = fitz.open(source_pdf_path)
+    # Create a new PDF to save selected pages
+    new_doc = fitz.open()
+
+    # Iterate through each range and add the pages to the new document
+    for start, end in page_ranges:
+        new_doc.insert_pdf(doc, from_page=start, to_page=end)
+
+    # Save the new document
+    new_doc.save(output_pdf_path)
+    new_doc.close()
+    doc.close()
+    print(f"Specified page ranges have been saved to {output_pdf_path}")
+
 def extract_content_and_images(pdf_path):
+    """
+    Extracts content from each page in the PDF and images from each page.
+
+    Args:
+        pdf_path (str): Path to the source PDF file.
+    
+    Returns:
+        None, but writes a JSON file named 'extracted_content.json' with extracted information including page number, topic name, content, tags, and image links. 
+    """
     doc = fitz.open(pdf_path)
     topics = []
     image_folder = 'extracted_images'
@@ -33,9 +67,6 @@ def extract_content_and_images(pdf_path):
             "tags": tags,
             "image_links": images_info
         })
-
     # Write to JSON
     with open('extracted_content.json', 'w') as json_file:
         json.dump(topics, json_file, indent=4)
-
-extract_content_and_images('path_to_your_pdf_file.pdf')
