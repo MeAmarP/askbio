@@ -1,84 +1,164 @@
-# AskBio : LLM Powered chatbot for answering biology-related questions.
+# AskBio
 
-AskBio is a command-line chatbot designed to answer questions by leveraging the power of Large Language Models (LLM) and Retrieval-Augmented Generation (RAG) technology. It is specially tuned to provide responses based on the context information extracted from the "Concepts of Biology" text.
+AskBio is an evidence-first biology tutor. It retrieves passages from PDFs you
+are authorized to use, answers from that evidence, and shows the source file,
+page, relevance score, and excerpt behind the answer.
 
-## Features
+## What is implemented
 
-- **Language Model**: Utilizes the `microsoft/Phi-3-mini-4k-instruct` model for generating responses.
-- **Embedding Model**: Uses `BAAI/bge-large-en-v1.5` model for generating embeddings of text data. This is used for semantic similarity and information retrieval.
-- **Retrieval-Augmented Generation**: Enhances response accuracy by retrieving relevant information from a vector-indexed database of documents.
-- **Quantized Model Deployment**: Utilizes quantization for efficient memory usage, making it suitable for deployment on systems with limited resources.
-- **Continuous Interaction**: Runs in a command-line interface (CLI) until the user decides to exit.
+- One-pass retrieval with configurable similarity filtering.
+- Explicit refusal when the corpus does not contain adequate evidence.
+- Page-level citations and evidence excerpts in CLI and web answers.
+- Persistent indexes that rebuild automatically when PDFs or chunk settings change.
+- Lightweight Ollama inference without PyTorch in the Python environment.
+- Optional Hugging Face/PyTorch inference backend.
+- Safe document-ingestion and indexing commands.
+- A reviewed evaluation dataset and deterministic retrieval metrics.
+- Learn, Socratic, Quiz, Exam Review, Flashcards, Hint, and Feedback modes.
+- Beginner, intermediate, and advanced explanation levels.
+- English, Hindi, Spanish, and French responses with preserved scientific terms.
+- Bounded follow-up context and local SQLite learning progress.
+- Tests, Ruff linting/formatting, mypy, coverage, and GitHub Actions CI.
 
-## Install Dependencies
+See [TODO.md](TODO.md) for the product roadmap and current progress.
+
+## Requirements
+
+- Python 3.12 (managed automatically by uv).
+- About 650 MB for the default Python environment, including development tools.
+- [Ollama](https://ollama.com/) running locally or at a configured URL.
+- About 2.5 GB for the default Ollama language and embedding models.
+- One or more PDF documents that you have permission to process.
+
+The optional Hugging Face backend is substantially larger because it installs
+PyTorch and GPU runtime packages. CPU inference is supported but will be much
+slower than Ollama or a compatible GPU.
+
+## Setup
+
+Install the lightweight environment:
+
 ```bash
-pip install -q transformers
-pip -q install sentence-transformers
-pip install -q llama-index
-pip install llama-index-llms-huggingface
-pip install llama-index-embeddings-huggingface
-pip3 install torch torchvision torchaudio
-pip install accelerate
-pip install -i https://pypi.org/simple/ bitsandbytes
-pip install pymupdf
-pip install python-dotenv
+uv sync
 ```
-## Usage
-To run the AskBio chatbot, execute the following command in your terminal:
 
-### For CLI:
+Install Ollama separately, start it, and fetch the default models:
+
 ```bash
-cd /src
-python askbio.py
+ollama pull phi3:mini
+ollama pull nomic-embed-text
 ```
-Follow the on-screen prompts to enter your questions. Type `/bye` to exit the chatbot interface.
-#### Example Interaction (CLI)
-```
-$ Welcome to AskBio. Enter your question or type '/bye' to exit.
-$ Enter your question: How does photosynthesis work?
-$ Response: Photosynthesis is a process used by plants, algae, and certain bacteria to harness energy from sunlight into chemical energy.
-$ Enter your question: /bye
-$ Exiting AskBio. Goodbye!
-```
-### For UI
+
+Copy the example configuration if you want to customize paths or models:
+
 ```bash
-cd /src
-python chat_interface.py
+cp .env.example .env
 ```
-<!-- insert image of UI here -->
-#### Example Interaction (UI)
-![AskBio UI](https://github.com/MeAmarP/askbio/blob/c1d23c24e73a292de09ac18dc99a3bbfc915bd18/Screenshot%20from%202024-04-29%2002-07-18.png)
----
-## Action Items
-  - [x] Select LLM Model
-    - `microsoft/Phi-3-mini-4k-instruct`
-  - [x] Select Embedding model
-    - `BAAI/bge-large-en-v1.5`
-      - Embedding Dimensions = 1024 
-      - Max Tokens = 512.
-### Index Phase
-  - [x] Data Preperation
-  - [x] Chunking/Spliting strategy
-    - SentenceSplitter with chunking size of 512
-  - [ ] Select VectorDB
-    - Refer benchmark data
-### Post Processing Phase
-  - [ ] Guradrails (Out-of-context, Abusive, vulgar, etc.)
-  - [ ] Retreiveing and Reranking techniques
-- [X] Evaluate the performance
-  - [x] Q-A Pair Generation for testing
-  - [X] Response Evaluation
-  - [ ] Retrieval Evaluation
-### Others
-  - [ ] Conversation History for context understanding
-  - [ ] Multi-turn conversation support
-  - [ ] Mulingual Support
 
+### Optional Hugging Face backend
 
-## Tools
-- llamaindex
-- PyMupdf/unstructred lib
-- Gradio?
-- Milvus
+```bash
+uv sync --extra local-hf
+ASKBIO_BACKEND=huggingface uv run python src/main.py serve
+```
 
+This installs PyTorch, Transformers, sentence-transformers, bitsandbytes, and
+the Hugging Face LlamaIndex integrations.
 
+## Add authorized documents
+
+AskBio deliberately does not download or redistribute a textbook. Add a PDF
+that you are legally permitted to process:
+
+```bash
+uv run python src/main.py add /path/to/biology-textbook.pdf
+uv run python src/main.py index
+```
+
+The project was originally demonstrated with OpenStax *Concepts of Biology*.
+Its current web edition includes specific attribution and AI-ingestion terms;
+review those terms and obtain any necessary permission before adding that
+content. The source page is
+[OpenStax Concepts of Biology](https://openstax.org/books/concepts-biology/pages/1-introduction).
+
+## Run AskBio
+
+Ask one question:
+
+```bash
+uv run python src/main.py ask "What is inductive reasoning?"
+```
+
+Launch the web interface:
+
+```bash
+uv run python src/main.py serve
+```
+
+Review locally stored learning progress:
+
+```bash
+uv run python src/main.py progress
+```
+
+The first index build calls the embedding backend. Later starts reuse the
+persisted `.askbio_index` until documents or indexing settings change.
+
+## Configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ASKBIO_BACKEND` | `ollama` | `ollama` or `huggingface` |
+| `ASKBIO_DATA_DIR` | `data/sample` | Recursive PDF corpus |
+| `ASKBIO_INDEX_DIR` | `.askbio_index` | Persistent vector index |
+| `ASKBIO_LLM_MODEL` | `phi3:mini` | Answer-generation model |
+| `ASKBIO_EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server |
+| `ASKBIO_TOP_K` | `4` | Retrieved candidates |
+| `ASKBIO_SIMILARITY_CUTOFF` | `0.55` | Minimum accepted similarity |
+| `ASKBIO_CHUNK_SIZE` | `512` | Text chunk size |
+| `ASKBIO_CHUNK_OVERLAP` | `64` | Text overlap between chunks |
+
+## Quality checks
+
+```bash
+make check
+```
+
+Or run each check directly:
+
+```bash
+uv run ruff check src tests
+uv run mypy
+uv run pytest --cov=src
+```
+
+## Evaluation
+
+The default gold set lives in `evaluation/gold.json`. It replaces the original
+unfiltered generated-question dump as the evaluator input and contains reviewed
+facts and source pages.
+
+With the matching document corpus indexed:
+
+```bash
+make evaluate
+```
+
+The JSON report records Recall@K, mean reciprocal rank, citation precision,
+answer-fact recall, refusal rate, and latency. Reports are written under
+`evaluation/reports/` and should be reviewed before setting release thresholds.
+
+## Current limitations
+
+- An end-to-end model run requires an authorized corpus and a running Ollama
+  server, neither of which is bundled with the repository.
+- Progress mastery is recorded through the storage API, but the UI does not yet
+  expose answer self-assessment controls.
+- Diagram retrieval and classroom tooling are scheduled for Phase 3.
+- Prompt-injection resistance is defense-in-depth, not a security guarantee.
+
+## License
+
+AskBio's source code is licensed under GPL-3.0. Source documents retain their
+own licenses and are not covered by the repository license.

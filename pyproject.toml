@@ -1,0 +1,56 @@
+[project]
+name = "askbio"
+version = "0.1.0"
+description = "A local retrieval-augmented biology tutor"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = { file = "LICENSE" }
+dependencies = [
+    "gradio",
+    "llama-index-core",
+    "llama-index-embeddings-ollama",
+    "llama-index-llms-ollama",
+    "nest-asyncio",
+    "pymupdf",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+local-hf = [
+    "accelerate",
+    "bitsandbytes; sys_platform == 'linux'",
+    "llama-index-embeddings-huggingface",
+    "llama-index-llms-huggingface",
+    "sentence-transformers",
+    "torch",
+    "transformers",
+]
+
+[dependency-groups]
+dev = [
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests"]
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true

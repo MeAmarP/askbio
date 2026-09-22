@@ -1,0 +1,29 @@
+{
+  "name": "AskBio Concepts of Biology gold set",
+  "version": 1,
+  "source_note": "Source labels were reviewed against the sample PDF evidence preserved in sample_nbs/naive_rag1.ipynb.",
+  "cases": [
+    {
+      "question": "What type of reasoning uses related observations to reach a general conclusion?",
+      "expected_facts": [
+        "inductive reasoning",
+        "observations",
+        "general conclusion"
+      ],
+      "expected_sources": [
+        "sample_ch1_ch2_ConceptsofBiology.pdf#15"
+      ]
+    },
+    {
+      "question": "What is a hypothesis in science?",
+      "expected_facts": [
+        "tentative explanation",
+        "observation"
+      ],
+      "expected_sources": [
+        "sample_ch1_ch2_ConceptsofBiology.pdf#21"
+      ]
+    }
+  ]
+}
+
