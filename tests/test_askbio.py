@@ -217,6 +217,27 @@ def test_relative_environment_paths_are_resolved_from_project_root(monkeypatch, 
     assert not str(config.data_dir).startswith(str(tmp_path))
 
 
+def test_default_configuration_targets_local_llama_cpp_servers(monkeypatch) -> None:
+    monkeypatch.delenv("ASKBIO_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("ASKBIO_EMBEDDING_BASE_URL", raising=False)
+
+    config = AskBioConfig.from_env()
+
+    assert config.llm_base_url == "http://127.0.0.1:8080/v1"
+    assert config.embedding_base_url == "http://127.0.0.1:8081/v1"
+
+
+def test_llama_cpp_uses_openai_compatible_adapters(tmp_path) -> None:
+    assistant = object.__new__(AskBio)
+    assistant.config = make_config(tmp_path)
+
+    embedding, llm = assistant._initialize_models()
+
+    assert embedding.model_name == "askbio-embed"
+    assert llm.model == "askbio-chat"
+    assert llm.is_chat_model is True
+
+
 def test_invalid_tutor_mode_is_rejected() -> None:
     with pytest.raises(ValueError, match="Unsupported tutor mode"):
         AskBio._tutor_query(

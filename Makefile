@@ -15,10 +15,11 @@ format:
 evaluate:
 	uv run python src/evaluate.py
 
-sync:
-	uv sync --extra local-hf
+llama-check:
+	curl --fail --silent http://127.0.0.1:8080/health >/dev/null
+	curl --fail --silent http://127.0.0.1:8081/health >/dev/null
 
-sync-lite:
+sync:
 	uv sync
 
-.PHONY: check evaluate format sync sync-lite test
+.PHONY: check evaluate format llama-check sync test

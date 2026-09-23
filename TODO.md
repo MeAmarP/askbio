@@ -11,7 +11,6 @@ textbooks, show the evidence, and turn each answer into an active learning step.
 - [x] Create the local `.venv` and lock all dependencies in `uv.lock`.
 - [x] Remove stale imports that prevented the project from loading.
 - [x] Delay model initialization until the first UI request.
-- [x] Make the PyTorch/Hugging Face inference stack an optional uv extra.
 - [x] Add a lightweight remote or external-process backend for inference without PyTorch.
 - [x] Add a documented authorized-textbook setup command.
 - [x] Add unit and integration tests with a small fixture document.

@@ -10,8 +10,7 @@ page, relevance score, and excerpt behind the answer.
 - Explicit refusal when the corpus does not contain adequate evidence.
 - Page-level citations and evidence excerpts in CLI and web answers.
 - Persistent indexes that rebuild automatically when PDFs or chunk settings change.
-- Lightweight Ollama inference without PyTorch in the Python environment.
-- Optional Hugging Face/PyTorch inference backend.
+- Lightweight llama.cpp inference without PyTorch in the Python environment.
 - Safe document-ingestion and indexing commands.
 - A reviewed evaluation dataset and deterministic retrieval metrics.
 - Learn, Socratic, Quiz, Exam Review, Flashcards, Hint, and Feedback modes.
@@ -26,13 +25,9 @@ See [TODO.md](TODO.md) for the product roadmap and current progress.
 
 - Python 3.12 (managed automatically by uv).
 - About 650 MB for the default Python environment, including development tools.
-- [Ollama](https://ollama.com/) running locally or at a configured URL.
-- About 2.5 GB for the default Ollama language and embedding models.
+- [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama` command available locally.
+- A chat GGUF and a separate embedding GGUF suitable for llama.cpp.
 - One or more PDF documents that you have permission to process.
-
-The optional Hugging Face backend is substantially larger because it installs
-PyTorch and GPU runtime packages. CPU inference is supported but will be much
-slower than Ollama or a compatible GPU.
 
 ## Setup
 
@@ -42,28 +37,31 @@ Install the lightweight environment:
 uv sync
 ```
 
-Install Ollama separately, start it, and fetch the default models:
+Start two local llama.cpp servers: one for chat and one dedicated to embeddings.
+Replace the two paths below with your GGUF files. The default loopback binding
+keeps the servers local to your machine.
 
 ```bash
-ollama pull phi3:mini
-ollama pull nomic-embed-text
+llama serve --model /path/to/chat-model.gguf --alias askbio-chat --port 8080 --ctx-size 4096
+llama serve --model /path/to/embedding-model.gguf --alias askbio-embed --port 8081 --embeddings --pooling mean
 ```
+
+Run each command in a separate terminal, then confirm both services are ready:
+
+```bash
+make llama-check
+```
+
+The embedding server must use a model trained for embeddings; do not reuse the
+chat model for this role. AskBio sends the standard OpenAI embedding model name
+for client compatibility, while the `ASKBIO_EMBEDDING_MODEL` label identifies
+your actual embedding GGUF in the persisted-index manifest.
 
 Copy the example configuration if you want to customize paths or models:
 
 ```bash
 cp .env.example .env
 ```
-
-### Optional Hugging Face backend
-
-```bash
-uv sync --extra local-hf
-ASKBIO_BACKEND=huggingface uv run python src/main.py serve
-```
-
-This installs PyTorch, Transformers, sentence-transformers, bitsandbytes, and
-the Hugging Face LlamaIndex integrations.
 
 ## Add authorized documents
 
@@ -101,19 +99,20 @@ Review locally stored learning progress:
 uv run python src/main.py progress
 ```
 
-The first index build calls the embedding backend. Later starts reuse the
+The first index build calls the llama.cpp embedding server. Later starts reuse the
 persisted `.askbio_index` until documents or indexing settings change.
 
 ## Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `ASKBIO_BACKEND` | `ollama` | `ollama` or `huggingface` |
 | `ASKBIO_DATA_DIR` | `data/sample` | Recursive PDF corpus |
 | `ASKBIO_INDEX_DIR` | `.askbio_index` | Persistent vector index |
-| `ASKBIO_LLM_MODEL` | `phi3:mini` | Answer-generation model |
-| `ASKBIO_EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server |
+| `ASKBIO_LLM_MODEL` | `askbio-chat` | Chat-server model alias |
+| `ASKBIO_EMBEDDING_MODEL` | `askbio-embed` | Label for the embedding GGUF; changing it rebuilds the index |
+| `ASKBIO_LLM_BASE_URL` | `http://127.0.0.1:8080/v1` | llama.cpp chat server |
+| `ASKBIO_EMBEDDING_BASE_URL` | `http://127.0.0.1:8081/v1` | llama.cpp embedding server |
+| `ASKBIO_API_KEY` | `llama.cpp` | API key sent to both servers; set this if you configure `llama serve --api-key` |
 | `ASKBIO_TOP_K` | `4` | Retrieved candidates |
 | `ASKBIO_SIMILARITY_CUTOFF` | `0.55` | Minimum accepted similarity |
 | `ASKBIO_CHUNK_SIZE` | `512` | Text chunk size |
@@ -151,8 +150,8 @@ answer-fact recall, refusal rate, and latency. Reports are written under
 
 ## Current limitations
 
-- An end-to-end model run requires an authorized corpus and a running Ollama
-  server, neither of which is bundled with the repository.
+- An end-to-end model run requires an authorized corpus plus running llama.cpp
+  chat and embedding servers, neither of which is bundled with the repository.
 - Progress mastery is recorded through the storage API, but the UI does not yet
   expose answer self-assessment controls.
 - Diagram retrieval and classroom tooling are scheduled for Phase 3.

@@ -78,7 +78,7 @@ class AskBioError(RuntimeError):
 
 
 class ConfigurationError(AskBioError):
-    """Raised when a selected model backend is unavailable or invalid."""
+    """Raised when the configured model services are unavailable."""
 
 
 class DocumentError(AskBioError):
@@ -108,10 +108,11 @@ class AskBioConfig:
 
     data_dir: Path
     index_dir: Path
-    backend: str = "ollama"
-    llm_model: str = "phi3:mini"
-    embedding_model: str = "nomic-embed-text"
-    ollama_base_url: str = "http://localhost:11434"
+    llm_model: str = "askbio-chat"
+    embedding_model: str = "askbio-embed"
+    llm_base_url: str = "http://127.0.0.1:8080/v1"
+    embedding_base_url: str = "http://127.0.0.1:8081/v1"
+    api_key: str = "llama.cpp"
     top_k: int = 4
     similarity_cutoff: float = 0.55
     chunk_size: int = 512
@@ -119,20 +120,14 @@ class AskBioConfig:
 
     @classmethod
     def from_env(cls) -> AskBioConfig:
-        backend = os.getenv("ASKBIO_BACKEND", "ollama").strip().lower()
-        default_llm = (
-            "microsoft/Phi-3-mini-4k-instruct" if backend == "huggingface" else "phi3:mini"
-        )
-        default_embedding = (
-            "BAAI/bge-large-en-v1.5" if backend == "huggingface" else "nomic-embed-text"
-        )
         return cls(
             data_dir=_env_path("ASKBIO_DATA_DIR", PROJECT_ROOT / "data" / "sample"),
             index_dir=_env_path("ASKBIO_INDEX_DIR", PROJECT_ROOT / ".askbio_index"),
-            backend=backend,
-            llm_model=os.getenv("ASKBIO_LLM_MODEL", default_llm),
-            embedding_model=os.getenv("ASKBIO_EMBEDDING_MODEL", default_embedding),
-            ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+            llm_model=os.getenv("ASKBIO_LLM_MODEL", "askbio-chat"),
+            embedding_model=os.getenv("ASKBIO_EMBEDDING_MODEL", "askbio-embed"),
+            llm_base_url=os.getenv("ASKBIO_LLM_BASE_URL", "http://127.0.0.1:8080/v1"),
+            embedding_base_url=os.getenv("ASKBIO_EMBEDDING_BASE_URL", "http://127.0.0.1:8081/v1"),
+            api_key=os.getenv("ASKBIO_API_KEY", "llama.cpp"),
             top_k=_env_int("ASKBIO_TOP_K", 4),
             similarity_cutoff=_env_float("ASKBIO_SIMILARITY_CUTOFF", 0.55),
             chunk_size=_env_int("ASKBIO_CHUNK_SIZE", 512),
@@ -181,7 +176,7 @@ class AskBio:
     def __init__(self, config: AskBioConfig | None = None, *, force_reindex: bool = False) -> None:
         self.config = config or AskBioConfig.from_env()
         self.pdf_paths = self._validate_documents()
-        self.embedder, self.llm = self._initialize_backend()
+        self.embedder, self.llm = self._initialize_models()
         self.index = self._get_or_create_index(force=force_reindex)
         self.retriever = VectorIndexRetriever(self.index, similarity_top_k=self.config.top_k)
         self.query_engine = RetrieverQueryEngine(
@@ -206,63 +201,27 @@ class AskBio:
             raise DocumentError(f"No PDF documents found in {self.config.data_dir}.")
         return paths
 
-    def _initialize_backend(self) -> tuple[Any, Any]:
-        if self.config.backend == "ollama":
-            try:
-                from llama_index.embeddings.ollama import OllamaEmbedding
-                from llama_index.llms.ollama import Ollama
-            except ImportError as exc:  # pragma: no cover - dependency setup failure
-                raise ConfigurationError(
-                    "Run `uv sync` to install the Ollama integrations."
-                ) from exc
-            embedder = OllamaEmbedding(
-                model_name=self.config.embedding_model,
-                base_url=self.config.ollama_base_url,
-            )
-            llm = Ollama(
-                model=self.config.llm_model,
-                base_url=self.config.ollama_base_url,
-                request_timeout=180.0,
-                temperature=0.0,
-            )
-            return embedder, llm
-
-        if self.config.backend == "huggingface":
-            return self._initialize_huggingface_backend()
-
-        raise ConfigurationError(
-            f"Unsupported ASKBIO_BACKEND={self.config.backend!r}; use 'ollama' or 'huggingface'."
-        )
-
-    def _initialize_huggingface_backend(self) -> tuple[Any, Any]:
+    def _initialize_models(self) -> tuple[Any, Any]:
         try:
-            import torch
-            from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-            from llama_index.llms.huggingface import HuggingFaceLLM
-            from transformers import BitsAndBytesConfig
-        except ImportError as exc:
+            from llama_index.embeddings.openai import OpenAIEmbedding
+            from llama_index.llms.openai_like import OpenAILike
+        except ImportError as exc:  # pragma: no cover - dependency setup failure
             raise ConfigurationError(
-                "Hugging Face inference is optional. Run `uv sync --extra local-hf`."
+                "Run `uv sync` to install the llama.cpp server integrations."
             ) from exc
-
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        embedder = HuggingFaceEmbedding(model_name=self.config.embedding_model, device=device)
-        model_kwargs: dict[str, Any] = {"trust_remote_code": True}
-        if device == "cuda":
-            model_kwargs["quantization_config"] = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_use_double_quant=True,
-            )
-        llm = HuggingFaceLLM(
-            model_name=self.config.llm_model,
-            tokenizer_name=self.config.llm_model,
-            context_window=3900,
-            max_new_tokens=512,
-            model_kwargs=model_kwargs,
-            generate_kwargs={"temperature": 0.0},
-            device_map="auto",
+        embedder = OpenAIEmbedding(
+            model="text-embedding-ada-002",
+            model_name=self.config.embedding_model,
+            api_base=self.config.embedding_base_url,
+            api_key=self.config.api_key,
+        )
+        llm = OpenAILike(
+            model=self.config.llm_model,
+            api_base=self.config.llm_base_url,
+            api_key=self.config.api_key,
+            context_window=4096,
+            temperature=0.0,
+            is_chat_model=True,
         )
         return embedder, llm
 
@@ -294,7 +253,6 @@ class AskBio:
         return {
             "documents": documents,
             "embedding_model": self.config.embedding_model,
-            "backend": self.config.backend,
             "chunk_size": self.config.chunk_size,
             "chunk_overlap": self.config.chunk_overlap,
         }
